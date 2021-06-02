@@ -1,7 +1,7 @@
 # Cargo build options
 # https://doc.rust-lang.org/cargo/reference/config.html
 
-[target.thumbv6m-none-eabi]
+[target.thumbv7m-none-eabi]
 runner = 'arm-none-eabi-gdb -q -x openocd.gdb'
 rustflags = [
   # This is needed if your flash or ram addresses are not aligned to 0x10000 in memory.x
@@ -24,4 +24,4 @@ rustflags = [
 ]
 
 [build]
-target = "thumbv6m-none-eabi"
+target = "thumbv7m-none-eabi"

@@ -7,9 +7,9 @@ This repository contains a bootloader for the `Rusty Old Smart System` project.
 To build this project you will need:
 
 - Rust toolchain. [Installation instructions](https://www.rust-lang.org/learn/get-started).
-- `rust-std` components for the `thumbv6m-none-eabi` target. Run:
+- `rust-std` components for the `thumbv7m-none-eabi` target. Run:
     ```
-    $ rustup target add thumbv6m-none-eabi
+    $ rustup target add thumbv7m-none-eabi
     ```
 
 # License
