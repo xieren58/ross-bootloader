@@ -155,6 +155,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812b30ff14930407c86a23e256ac050b8e6913f597adcc88e29d40517f7a16de"
 
 [[package]]
+name = "eeprom24x"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f680e8d81a559a97de04c5fab25f17f22a55770120c868ef8fbdea6398d44107"
+dependencies = [
+ "embedded-hal",
+]
+
+[[package]]
 name = "embedded-can"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -297,6 +306,7 @@ dependencies = [
  "cortex-m 0.7.2",
  "cortex-m-rt",
  "cortex-m-semihosting",
+ "eeprom24x",
  "embedded-hal",
  "nb 1.0.0",
  "panic-semihosting",

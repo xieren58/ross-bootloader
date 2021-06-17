@@ -9,9 +9,18 @@ use embedded_hal::digital::v2::InputPin;
 use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::pac::Peripherals;
 use stm32f1xx_hal::can::Can;
+use stm32f1xx_hal::i2c::{BlockingI2c, Mode};
+use eeprom24x::{Eeprom24x, SlaveAddr};
 use nb::block;
 
+use eeprom::RossEeprom;
+
+mod eeprom;
+
 static PROGRAM_ADDRESS: u32 = 0x0800_8000;
+
+static EEPROM_BITRATE: u32 = 400_000;
+
 static CAN_BITRATE: u32 = 250_000;
 static CAN_TSEG1: u32 = 13;
 static CAN_TSEG2: u32 = 2;
@@ -43,6 +52,22 @@ fn main() -> ! {
     }
 
     let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
+    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+
+    let mut eeprom = {
+        let i2c1 = {
+            let scl = gpiob.pb6.into_alternate_open_drain(&mut gpiob.crl);
+            let sda = gpiob.pb7.into_alternate_open_drain(&mut gpiob.crl);
+            // TODO: put better values in the last 4 arguments
+            BlockingI2c::i2c1(dp.I2C1, (scl, sda), &mut afio.mapr, Mode::standard(EEPROM_BITRATE.hz()), clocks, &mut rcc.apb1, 10, 10, 10, 10)
+        };
+
+        let eeprom = Eeprom24x::new_24x02(i2c1, SlaveAddr::Alternative(false, false, false));
+
+        RossEeprom::new(eeprom, 0)
+    };
+
+    let _device_address = eeprom.read_device_info().unwrap().device_address;
 
     let mut can1 = {
         let can = Can::new(dp.CAN1, &mut rcc.apb1, dp.USB);
