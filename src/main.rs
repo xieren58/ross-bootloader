@@ -11,7 +11,7 @@ use stm32f1xx_hal::pac::Peripherals;
 use stm32f1xx_hal::can::Can;
 use nb::block;
 
-static PROGRAM_ADDRESS: u32 = 0x0800_4000;
+static PROGRAM_ADDRESS: u32 = 0x0800_8000;
 static CAN_BITRATE: u32 = 250_000;
 static CAN_TSEG1: u32 = 13;
 static CAN_TSEG2: u32 = 2;
