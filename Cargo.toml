@@ -17,3 +17,6 @@ eeprom24x = "0.3.0"
 [dependencies.stm32f1xx-hal]
 git = "https://github.com/stm32-rs/stm32f1xx-hal"
 features = ["rt", "stm32f103", "medium"]
+
+[dependencies.ross-eeprom]
+git = "https://github.com/linasdev/ross-eeprom"

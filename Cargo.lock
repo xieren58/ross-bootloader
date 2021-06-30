@@ -310,6 +310,19 @@ dependencies = [
  "embedded-hal",
  "nb 1.0.0",
  "panic-semihosting",
+ "ross-eeprom",
+ "stm32f1xx-hal",
+]
+
+[[package]]
+name = "ross-eeprom"
+version = "0.1.1"
+source = "git+https://github.com/linasdev/ross-eeprom#5f12beda65749aa6153efbca358ce2ed3f135cf2"
+dependencies = [
+ "cortex-m 0.7.2",
+ "eeprom24x",
+ "embedded-hal",
+ "nb 1.0.0",
  "stm32f1xx-hal",
 ]
 

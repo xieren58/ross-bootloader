@@ -13,9 +13,7 @@ use stm32f1xx_hal::i2c::{BlockingI2c, Mode};
 use eeprom24x::{Eeprom24x, SlaveAddr};
 use nb::block;
 
-use eeprom::RossEeprom;
-
-mod eeprom;
+use ross_eeprom::RossEeprom;
 
 static PROGRAM_ADDRESS: u32 = 0x0800_8000;
 
