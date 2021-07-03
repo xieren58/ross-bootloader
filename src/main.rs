@@ -15,14 +15,14 @@ use nb::block;
 
 use ross_eeprom::RossEeprom;
 
-static PROGRAM_ADDRESS: u32 = 0x0800_8000;
+const PROGRAM_ADDRESS: u32 = 0x0800_8000;
 
-static EEPROM_BITRATE: u32 = 400_000;
+const EEPROM_BITRATE: u32 = 400_000;
 
-static CAN_BITRATE: u32 = 250_000;
-static CAN_TSEG1: u32 = 13;
-static CAN_TSEG2: u32 = 2;
-static CAN_SJW: u32 = 1;
+const CAN_BITRATE: u32 = 50_000;
+const CAN_TSEG1: u32 = 13;
+const CAN_TSEG2: u32 = 2;
+const CAN_SJW: u32 = 1;
 
 #[entry]
 fn main() -> ! {
