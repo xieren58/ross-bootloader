@@ -1,8 +1,11 @@
 #![no_std]
 #![no_main]
+#![feature(alloc_error_handler)]
 
 use panic_semihosting as _;
 
+use alloc_cortex_m::CortexMHeap;
+use core::alloc::Layout;
 use cortex_m::asm::{bootload, nop};
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::InputPin;
@@ -23,6 +26,11 @@ const CAN_BITRATE: u32 = 50_000;
 const CAN_TSEG1: u32 = 13;
 const CAN_TSEG2: u32 = 2;
 const CAN_SJW: u32 = 1;
+
+const HEAP_SIZE: usize = 4096;
+
+#[global_allocator]
+static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 #[entry]
 fn main() -> ! {
@@ -85,6 +93,8 @@ fn main() -> ! {
 
     block!(can1.enable()).unwrap();
 
+    allocate_heap();
+
     loop {
         nop();
     }
@@ -100,4 +110,14 @@ fn calc_can_btr(clock_rate: u32) -> u32 {
     let brp = clock_rate / CAN_BITRATE / (CAN_TSEG1 + CAN_TSEG2);
 
     (brp - 1) | ((CAN_TSEG1 - 1) << 16) | ((CAN_TSEG2 - 1) << 20) | ((CAN_SJW - 1) << 24)
+}
+
+fn allocate_heap() {
+    let start = cortex_m_rt::heap_start() as usize;
+    unsafe { ALLOCATOR.init(start, HEAP_SIZE) }
+}
+
+#[alloc_error_handler]
+fn oom(_: Layout) -> ! {
+    loop {}
 }
