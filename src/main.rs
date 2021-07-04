@@ -50,7 +50,7 @@ macro_rules! debug {
     };
     ($fmt:expr, $($arg:tt)*) => {
         if DEBUG {
-            iprint!(&mut unsafe { ITM_PERIPHERAL.as_mut().unwrap() }.stim[0], concat!($fmt, "\r\n"), $arg);
+            iprint!(&mut unsafe { ITM_PERIPHERAL.as_mut().unwrap() }.stim[0], concat!($fmt, "\r\n"), $($arg)*);
         }
     };
 }
