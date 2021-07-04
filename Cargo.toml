@@ -20,3 +20,6 @@ features = ["rt", "stm32f103", "medium"]
 
 [dependencies.ross-eeprom]
 git = "https://github.com/linasdev/ross-eeprom"
+
+[dependencies.ross-protocol]
+git = "https://github.com/linasdev/ross-protocol"

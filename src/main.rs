@@ -16,8 +16,14 @@ use stm32f1xx_hal::can::Can;
 use stm32f1xx_hal::i2c::{BlockingI2c, Mode};
 use eeprom24x::{Eeprom24x, SlaveAddr};
 use nb::block;
+use bxcan::filter::Mask32;
+use bxcan::{Instance, Rx};
 
 use ross_eeprom::RossEeprom;
+use ross_protocol::ross_convert_packet::RossConvertPacket;
+use ross_protocol::ross_event::ross_programmer_event::RossProgrammerHelloEvent;
+use ross_protocol::ross_frame::RossFrame;
+use ross_protocol::ross_packet::RossPacketBuilder;
 
 const PROGRAM_ADDRESS: u32 = 0x0800_8000;
 
@@ -118,9 +124,19 @@ fn main() -> ! {
         c.set_silent(false);
     });
 
+    let mut filters = can1.modify_filters();
+    filters.enable_bank(0, Mask32::accept_all());
+    drop(filters);
+
     block!(can1.enable()).unwrap();
 
     allocate_heap();
+
+    let (_tx, mut rx) = can1.split();
+
+    let programmer_hello_event = wait_for_programmer_hello_event(&mut rx);
+
+    debug!("Received 'programmer_hello_event' ({:?})", programmer_hello_event);
 
     loop {
         nop();
@@ -142,6 +158,52 @@ fn calc_can_btr(clock_rate: u32) -> u32 {
 fn allocate_heap() {
     let start = cortex_m_rt::heap_start() as usize;
     unsafe { ALLOCATOR.init(start, HEAP_SIZE) }
+}
+
+fn wait_for_programmer_hello_event<T: Instance>(rx: &mut Rx<T>) -> RossProgrammerHelloEvent {
+    let mut packet_builder_option: Option<RossPacketBuilder> = None;
+
+    loop {
+        if let Ok(frame) = rx.receive() {
+            if let Some(mut packet_builder) = packet_builder_option {
+                if packet_builder.frames_left() > 0 {
+                    packet_builder
+                        .add_frame(RossFrame::from_bxcan_frame(frame).unwrap())
+                        .unwrap();
+
+                    packet_builder_option = Some(packet_builder);
+                } else {
+                    let packet = packet_builder.build().unwrap();
+
+                    if let Ok(programmer_hello_event) =
+                        RossProgrammerHelloEvent::try_from_packet(packet)
+                    {
+                        return programmer_hello_event;
+                    } else {
+                        debug!("Unexpected event.");
+                    }
+
+                    if let Ok(packet_builder) =
+                        RossPacketBuilder::new(RossFrame::from_bxcan_frame(frame).unwrap())
+                    {
+                        packet_builder_option = Some(packet_builder)
+                    } else {
+                        packet_builder_option = None;
+                        debug!("Caught a middle frame.");
+                    }
+                }
+            } else {
+                if let Ok(packet_builder) =
+                    RossPacketBuilder::new(RossFrame::from_bxcan_frame(frame).unwrap())
+                {
+                    packet_builder_option = Some(packet_builder)
+                } else {
+                    packet_builder_option = None;
+                    debug!("Caught a middle frame.");
+                }
+            }
+        }
+    }
 }
 
 #[alloc_error_handler]

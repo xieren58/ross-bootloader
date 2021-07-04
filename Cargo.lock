@@ -73,11 +73,11 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "cast"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57cdfa5d50aad6cb4d44dcab6101a7f79925bd59d82ca42f38a9856a28865374"
+checksum = "4c24dab4283a142afa2fdca129b80ad2c6284e073930f964c3a1293c225ee39a"
 dependencies = [
- "rustc_version 0.3.3",
+ "rustc_version 0.4.0",
 ]
 
 [[package]]
@@ -89,15 +89,15 @@ dependencies = [
  "aligned",
  "bare-metal",
  "bitfield",
- "cortex-m 0.7.2",
+ "cortex-m 0.7.3",
  "volatile-register",
 ]
 
 [[package]]
 name = "cortex-m"
-version = "0.7.2"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "643a210c1bdc23d0db511e2a576082f4ff4dcae9d0c37f50b431b8f8439d6d6b"
+checksum = "2ac919ef424449ec8c08d515590ce15d9262c0ca5f0da5b0c901e971a3b783b3"
 dependencies = [
  "bare-metal",
  "bitfield",
@@ -268,7 +268,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d577d97d1b31268087b6dddf2470e6794ef5eee87d9dca7fcd0481695391a4c"
 dependencies = [
- "cortex-m 0.7.2",
+ "cortex-m 0.7.3",
 ]
 
 [[package]]
@@ -310,26 +310,35 @@ version = "0.1.0"
 dependencies = [
  "alloc-cortex-m",
  "bxcan",
- "cortex-m 0.7.2",
+ "cortex-m 0.7.3",
  "cortex-m-rt",
  "eeprom24x",
  "embedded-hal",
  "nb 1.0.0",
  "panic-itm",
  "ross-eeprom",
+ "ross-protocol",
  "stm32f1xx-hal",
 ]
 
 [[package]]
 name = "ross-eeprom"
-version = "0.1.1"
-source = "git+https://github.com/linasdev/ross-eeprom#5f12beda65749aa6153efbca358ce2ed3f135cf2"
+version = "0.1.2"
+source = "git+https://github.com/linasdev/ross-eeprom#acf64d43d4b12f5c9e71b83646cc8f4e68437590"
 dependencies = [
- "cortex-m 0.7.2",
+ "cortex-m 0.7.3",
  "eeprom24x",
  "embedded-hal",
  "nb 1.0.0",
  "stm32f1xx-hal",
+]
+
+[[package]]
+name = "ross-protocol"
+version = "0.2.3"
+source = "git+https://github.com/linasdev/ross-protocol#2d2e26fcffeb9beeb55cb822203989f004db51a3"
+dependencies = [
+ "bxcan",
 ]
 
 [[package]]
@@ -343,11 +352,11 @@ dependencies = [
 
 [[package]]
 name = "rustc_version"
-version = "0.3.3"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0dfe2087c51c460008730de8b57e6a320782fbfb312e1f4d520e6c6fae155ee"
+checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 0.11.0",
+ "semver 1.0.3",
 ]
 
 [[package]]
@@ -367,6 +376,12 @@ checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
 dependencies = [
  "semver-parser 0.10.2",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f3aac57ee7f3272d8395c6e4f502f434f0e289fcd62876f70daa008c20dcabe"
 
 [[package]]
 name = "semver-parser"
@@ -419,9 +434,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.72"
+version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1e8cdbefb79a9a5a65e0db8b47b723ee907b7c7f8496c76a1770b5c310bab82"
+checksum = "f71489ff30030d2ae598524f61326b902466f72a0fb1a8564c001cc63425bcc7"
 dependencies = [
  "proc-macro2",
  "quote",
