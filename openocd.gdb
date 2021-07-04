@@ -9,5 +9,7 @@ break HardFault
 break rust_begin_unwind
 
 monitor arm semihosting enable
+monitor tpiu config external uart off 72000000 2000000
+monitor itm port 0 on
 
 load
