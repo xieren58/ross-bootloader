@@ -5,19 +5,19 @@
 use panic_itm as _;
 
 use alloc_cortex_m::CortexMHeap;
-use core::alloc::Layout;
-use cortex_m::iprint;
-use cortex_m::asm::{bootload, nop};
-use cortex_m_rt::entry;
-use embedded_hal::digital::v2::InputPin;
-use stm32f1xx_hal::prelude::*;
-use stm32f1xx_hal::pac::{Peripherals, CorePeripherals, ITM};
-use stm32f1xx_hal::can::Can;
-use stm32f1xx_hal::i2c::{BlockingI2c, Mode};
-use eeprom24x::{Eeprom24x, SlaveAddr};
-use nb::block;
 use bxcan::filter::Mask32;
 use bxcan::{Instance, Rx};
+use core::alloc::Layout;
+use cortex_m::asm::{bootload, nop};
+use cortex_m::iprint;
+use cortex_m_rt::entry;
+use eeprom24x::{Eeprom24x, SlaveAddr};
+use embedded_hal::digital::v2::InputPin;
+use nb::block;
+use stm32f1xx_hal::can::Can;
+use stm32f1xx_hal::i2c::{BlockingI2c, Mode};
+use stm32f1xx_hal::pac::{CorePeripherals, Peripherals, ITM};
+use stm32f1xx_hal::prelude::*;
 
 use ross_eeprom::RossEeprom;
 use ross_protocol::ross_convert_packet::RossConvertPacket;
@@ -98,7 +98,18 @@ fn main() -> ! {
             let scl = gpiob.pb6.into_alternate_open_drain(&mut gpiob.crl);
             let sda = gpiob.pb7.into_alternate_open_drain(&mut gpiob.crl);
             // TODO: put better values in the last 4 arguments
-            BlockingI2c::i2c1(dp.I2C1, (scl, sda), &mut afio.mapr, Mode::standard(EEPROM_BITRATE.hz()), clocks, &mut rcc.apb1, 10, 10, 10, 10)
+            BlockingI2c::i2c1(
+                dp.I2C1,
+                (scl, sda),
+                &mut afio.mapr,
+                Mode::standard(EEPROM_BITRATE.hz()),
+                clocks,
+                &mut rcc.apb1,
+                10,
+                10,
+                10,
+                10,
+            )
         };
 
         let eeprom = Eeprom24x::new_24x02(i2c1, SlaveAddr::Alternative(false, false, false));
@@ -136,7 +147,10 @@ fn main() -> ! {
 
     let programmer_hello_event = wait_for_programmer_hello_event(&mut rx);
 
-    debug!("Received 'programmer_hello_event' ({:?})", programmer_hello_event);
+    debug!(
+        "Received 'programmer_hello_event' ({:?})",
+        programmer_hello_event
+    );
 
     loop {
         nop();
