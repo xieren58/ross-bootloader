@@ -6,7 +6,7 @@ use panic_itm as _;
 
 use alloc_cortex_m::CortexMHeap;
 use bxcan::filter::Mask32;
-use bxcan::{Instance, Rx};
+use bxcan::{Instance, Rx, Tx};
 use core::alloc::Layout;
 use cortex_m::asm::{bootload, nop};
 use cortex_m::iprint;
@@ -19,8 +19,9 @@ use stm32f1xx_hal::i2c::{BlockingI2c, Mode};
 use stm32f1xx_hal::pac::{CorePeripherals, Peripherals, ITM};
 use stm32f1xx_hal::prelude::*;
 
-use ross_eeprom::RossEeprom;
+use ross_eeprom::{RossEeprom, RossDeviceInfo};
 use ross_protocol::ross_convert_packet::RossConvertPacket;
+use ross_protocol::ross_event::ross_bootloader_event::RossBootloaderHelloEvent;
 use ross_protocol::ross_event::ross_programmer_event::RossProgrammerHelloEvent;
 use ross_protocol::ross_frame::RossFrame;
 use ross_protocol::ross_packet::RossPacketBuilder;
@@ -117,7 +118,9 @@ fn main() -> ! {
         RossEeprom::new(eeprom, 0)
     };
 
-    let _device_address = eeprom.read_device_info().unwrap().device_address;
+    let device_info = eeprom.read_device_info().unwrap();
+
+    debug!("Loaded device information from EEPROM ({:?}).", device_info);
 
     let mut can1 = {
         let can = Can::new(dp.CAN1, &mut rcc.apb1, dp.USB);
@@ -143,13 +146,20 @@ fn main() -> ! {
 
     allocate_heap();
 
-    let (_tx, mut rx) = can1.split();
+    let (mut tx, mut rx) = can1.split();
 
     let programmer_hello_event = wait_for_programmer_hello_event(&mut rx);
 
     debug!(
-        "Received 'programmer_hello_event' ({:?})",
+        "Received 'programmer_hello_event' ({:?}).",
         programmer_hello_event
+    );
+
+    let bootloader_hello_event = transmit_bootloader_hello_event(&mut tx, &device_info, &programmer_hello_event);
+
+    debug!(
+        "Sent 'bootloader_hello_event' ({:?}).",
+        bootloader_hello_event,
     );
 
     loop {
@@ -218,6 +228,26 @@ fn wait_for_programmer_hello_event<T: Instance>(rx: &mut Rx<T>) -> RossProgramme
             }
         }
     }
+}
+
+fn transmit_bootloader_hello_event<T: Instance>(
+    tx: &mut Tx<T>,
+    device_info: &RossDeviceInfo,
+    programmer_hello_event: &RossProgrammerHelloEvent,
+) -> RossBootloaderHelloEvent {
+    let bootloader_hello_event = RossBootloaderHelloEvent {
+        device_address: device_info.device_address,
+        programmer_address: programmer_hello_event.programmer_address,
+        firmware_version: device_info.firmware_version,
+    };
+
+    let frames = bootloader_hello_event.to_packet().to_frames();
+
+    for frame in frames {
+        block!(tx.transmit(&frame.to_bxcan_frame())).unwrap();
+    }
+
+    return bootloader_hello_event;
 }
 
 #[alloc_error_handler]
