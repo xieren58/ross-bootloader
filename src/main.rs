@@ -77,11 +77,11 @@ fn main() -> ! {
         ITM_PERIPHERAL = Some(cp.ITM);
     }
 
+    debug!("Bootloader initialized.");
+
     let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
 
     let upgrade_input = gpioa.pa1.into_pull_down_input(&mut gpioa.crl);
-
-    debug!("Bootloader initialized.");
 
     // If no firmware upgrade is requested, proceed with bootloading the program
     if upgrade_input.is_low().unwrap() {
