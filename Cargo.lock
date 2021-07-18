@@ -2,9 +2,9 @@
 # It is not intended for manual editing.
 [[package]]
 name = "aligned"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c19796bd8d477f1a9d4ac2465b464a8b1359474f06a96bb3cda650b4fca309bf"
+checksum = "3a785a543aea40f5e4e2e93bb2655d31bc21bb391fff65697150973e383f16bb"
 dependencies = [
  "as-slice",
 ]
@@ -335,10 +335,11 @@ dependencies = [
 
 [[package]]
 name = "ross-protocol"
-version = "0.2.3"
-source = "git+https://github.com/linasdev/ross-protocol#2d2e26fcffeb9beeb55cb822203989f004db51a3"
+version = "0.3.1"
+source = "git+https://github.com/linasdev/ross-protocol#d6ab9268a46b3f3f55219c562ba7a944de82cbf1"
 dependencies = [
  "bxcan",
+ "nb 1.0.0",
 ]
 
 [[package]]
@@ -419,7 +420,7 @@ dependencies = [
 [[package]]
 name = "stm32f1xx-hal"
 version = "0.7.0"
-source = "git+https://github.com/stm32-rs/stm32f1xx-hal#5d55f83528a1a4eebcc672201751a320d9be5854"
+source = "git+https://github.com/stm32-rs/stm32f1xx-hal#846e9c6205c626234d1c29172bb008a0d9494b35"
 dependencies = [
  "bxcan",
  "cast",

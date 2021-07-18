@@ -6,7 +6,7 @@ use panic_itm as _;
 
 use alloc_cortex_m::CortexMHeap;
 use bxcan::filter::Mask32;
-use bxcan::{Instance, Rx, Tx};
+use bxcan::Instance;
 use core::alloc::Layout;
 use cortex_m::asm::{bootload, nop};
 use cortex_m::iprint;
@@ -23,8 +23,7 @@ use ross_eeprom::{RossEeprom, RossDeviceInfo};
 use ross_protocol::ross_convert_packet::RossConvertPacket;
 use ross_protocol::ross_event::ross_bootloader_event::RossBootloaderHelloEvent;
 use ross_protocol::ross_event::ross_programmer_event::RossProgrammerHelloEvent;
-use ross_protocol::ross_frame::RossFrame;
-use ross_protocol::ross_packet::RossPacketBuilder;
+use ross_protocol::ross_can::{RossCan, RossCanError};
 
 const PROGRAM_ADDRESS: u32 = 0x0800_8000;
 
@@ -122,45 +121,36 @@ fn main() -> ! {
 
     debug!("Loaded device information from EEPROM ({:?}).", device_info);
 
-    let mut can1 = {
-        let can = Can::new(dp.CAN1, &mut rcc.apb1, dp.USB);
+    let mut can = {
+        let mut can1 = {
+            let can = Can::new(dp.CAN1, &mut rcc.apb1, dp.USB);
 
-        let rx = gpioa.pa11.into_floating_input(&mut gpioa.crh);
-        let tx = gpioa.pa12.into_alternate_push_pull(&mut gpioa.crh);
-        can.assign_pins((tx, rx), &mut afio.mapr);
+            let rx = gpioa.pa11.into_floating_input(&mut gpioa.crh);
+            let tx = gpioa.pa12.into_alternate_push_pull(&mut gpioa.crh);
+            can.assign_pins((tx, rx), &mut afio.mapr);
 
-        bxcan::Can::new(can)
+            bxcan::Can::new(can)
+        };
+
+        can1.configure(|c| {
+            c.set_bit_timing(calc_can_btr(clocks.pclk1().0));
+            c.set_loopback(false);
+            c.set_silent(false);
+        });
+
+        let mut filters = can1.modify_filters();
+        filters.enable_bank(0, Mask32::accept_all());
+        drop(filters);
+
+        block!(can1.enable()).unwrap();
+        
+        RossCan::new(can1)
     };
-
-    can1.configure(|c| {
-        c.set_bit_timing(calc_can_btr(clocks.pclk1().0));
-        c.set_loopback(false);
-        c.set_silent(false);
-    });
-
-    let mut filters = can1.modify_filters();
-    filters.enable_bank(0, Mask32::accept_all());
-    drop(filters);
-
-    block!(can1.enable()).unwrap();
 
     allocate_heap();
 
-    let (mut tx, mut rx) = can1.split();
-
-    let programmer_hello_event = wait_for_programmer_hello_event(&mut rx);
-
-    debug!(
-        "Received 'programmer_hello_event' ({:?}).",
-        programmer_hello_event
-    );
-
-    let bootloader_hello_event = transmit_bootloader_hello_event(&mut tx, &device_info, &programmer_hello_event);
-
-    debug!(
-        "Sent 'bootloader_hello_event' ({:?}).",
-        bootloader_hello_event,
-    );
+    let programmer_hello_event = wait_for_programmer_hello_event(&mut can);
+    transmit_bootloader_hello_event(&mut can, &device_info, &programmer_hello_event);
 
     loop {
         nop();
@@ -184,70 +174,45 @@ fn allocate_heap() {
     unsafe { ALLOCATOR.init(start, HEAP_SIZE) }
 }
 
-fn wait_for_programmer_hello_event<T: Instance>(rx: &mut Rx<T>) -> RossProgrammerHelloEvent {
-    let mut packet_builder_option: Option<RossPacketBuilder> = None;
-
+fn wait_for_programmer_hello_event<I: Instance>(can: &mut RossCan<I>) -> RossProgrammerHelloEvent {
     loop {
-        if let Ok(frame) = rx.receive() {
-            if let Some(mut packet_builder) = packet_builder_option {
-                if packet_builder.frames_left() > 0 {
-                    packet_builder
-                        .add_frame(RossFrame::from_bxcan_frame(frame).unwrap())
-                        .unwrap();
-
-                    packet_builder_option = Some(packet_builder);
-                } else {
-                    let packet = packet_builder.build().unwrap();
-
-                    if let Ok(programmer_hello_event) =
-                        RossProgrammerHelloEvent::try_from_packet(packet)
-                    {
-                        return programmer_hello_event;
-                    } else {
-                        debug!("Unexpected event.");
-                    }
-
-                    if let Ok(packet_builder) =
-                        RossPacketBuilder::new(RossFrame::from_bxcan_frame(frame).unwrap())
-                    {
-                        packet_builder_option = Some(packet_builder)
-                    } else {
-                        packet_builder_option = None;
-                        debug!("Caught a middle frame.");
-                    }
+        let packet = match can.try_get_packet() {
+            Ok(packet) => packet,
+            Err(err) => {
+                if let RossCanError::NoPacketReceived = err {
+                    continue;
                 }
-            } else {
-                if let Ok(packet_builder) =
-                    RossPacketBuilder::new(RossFrame::from_bxcan_frame(frame).unwrap())
-                {
-                    packet_builder_option = Some(packet_builder)
-                } else {
-                    packet_builder_option = None;
-                    debug!("Caught a middle frame.");
-                }
-            }
+
+                debug!("Failed to get packet ({:?}).", err);
+                continue;
+            },
+        };
+
+        if let Ok(event) = RossProgrammerHelloEvent::try_from_packet(packet) {    
+            debug!("Received 'programmer_hello_event' ({:?}).", event);
+            return event;
+        } else {
+            debug!("Received unexpected event.");
         }
     }
 }
 
-fn transmit_bootloader_hello_event<T: Instance>(
-    tx: &mut Tx<T>,
+fn transmit_bootloader_hello_event<I: Instance>(
+    can: &mut RossCan<I>,
     device_info: &RossDeviceInfo,
     programmer_hello_event: &RossProgrammerHelloEvent,
-) -> RossBootloaderHelloEvent {
-    let bootloader_hello_event = RossBootloaderHelloEvent {
+) {
+    let event = RossBootloaderHelloEvent {
         device_address: device_info.device_address,
         programmer_address: programmer_hello_event.programmer_address,
         firmware_version: device_info.firmware_version,
     };
 
-    let frames = bootloader_hello_event.to_packet().to_frames();
-
-    for frame in frames {
-        block!(tx.transmit(&frame.to_bxcan_frame())).unwrap();
+    if let Err(err) = can.try_send_packet(&event.to_packet()) {
+        debug!("Failed to send `bootloader_hello_event` ({:?}).", err);
+    } else {
+        debug!("Sent `bootloader_hello_event` ({:?}).", event);
     }
-
-    return bootloader_hello_event;
 }
 
 #[alloc_error_handler]
