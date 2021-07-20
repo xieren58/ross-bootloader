@@ -81,6 +81,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cobs"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c44be444fc7959957b0f331d596bafcfbbe30cbdf41665d1c40c68eda24137f6"
+
+[[package]]
 name = "cortex-m"
 version = "0.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -306,7 +312,7 @@ checksum = "e2a38df5b15c8d5c7e8654189744d8e396bddc18ad48041a500ce52d6948941f"
 
 [[package]]
 name = "ross-bootloader"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "alloc-cortex-m",
  "bxcan",
@@ -318,27 +324,31 @@ dependencies = [
  "panic-itm",
  "ross-eeprom",
  "ross-protocol",
- "stm32f1xx-hal",
+ "stm32f1xx-hal 0.7.0 (git+https://github.com/stm32-rs/stm32f1xx-hal)",
 ]
 
 [[package]]
 name = "ross-eeprom"
 version = "0.1.2"
-source = "git+https://github.com/linasdev/ross-eeprom#acf64d43d4b12f5c9e71b83646cc8f4e68437590"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16ffa53c285b992d43be02d4737f7e91ae46f3922cf84410a58023a2d4f3d4fe"
 dependencies = [
  "cortex-m 0.7.3",
  "eeprom24x",
  "embedded-hal",
  "nb 1.0.0",
- "stm32f1xx-hal",
+ "stm32f1xx-hal 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "ross-protocol"
-version = "0.3.1"
-source = "git+https://github.com/linasdev/ross-protocol#d6ab9268a46b3f3f55219c562ba7a944de82cbf1"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aeb971929add976ba02731e2378273bd83a8fe4154da643784ed340f703b17f7"
 dependencies = [
  "bxcan",
+ "cobs",
+ "embedded-hal",
  "nb 1.0.0",
 ]
 
@@ -415,6 +425,22 @@ dependencies = [
  "cortex-m 0.6.7",
  "cortex-m-rt",
  "vcell",
+]
+
+[[package]]
+name = "stm32f1xx-hal"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf679de34580d2f8806d9a6384c110b6df002404e1ff024cf8d567c91df4d4b2"
+dependencies = [
+ "cast",
+ "cortex-m 0.6.7",
+ "cortex-m-rt",
+ "embedded-dma",
+ "embedded-hal",
+ "nb 0.1.3",
+ "stm32f1",
+ "void",
 ]
 
 [[package]]
