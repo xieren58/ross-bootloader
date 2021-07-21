@@ -23,7 +23,7 @@ use ross_eeprom::{RossEeprom, RossDeviceInfo};
 use ross_protocol::ross_convert_packet::RossConvertPacket;
 use ross_protocol::ross_event::ross_bootloader_event::RossBootloaderHelloEvent;
 use ross_protocol::ross_event::ross_programmer_event::RossProgrammerHelloEvent;
-use ross_protocol::ross_can::{RossCan, RossCanError};
+use ross_protocol::ross_interface::ross_can::{RossCan, RossCanError};
 
 const PROGRAM_ADDRESS: u32 = 0x0800_8000;
 
@@ -188,7 +188,7 @@ fn wait_for_programmer_hello_event<I: Instance>(can: &mut RossCan<I>) -> RossPro
             },
         };
 
-        if let Ok(event) = RossProgrammerHelloEvent::try_from_packet(packet) {    
+        if let Ok(event) = RossProgrammerHelloEvent::try_from_packet(&packet) {    
             debug!("Received 'programmer_hello_event' ({:?}).", event);
             return event;
         } else {
