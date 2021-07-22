@@ -8,7 +8,7 @@ use alloc_cortex_m::CortexMHeap;
 use bxcan::filter::Mask32;
 use bxcan::Instance;
 use core::alloc::Layout;
-use cortex_m::asm::{bootload, nop};
+use cortex_m::asm::bootload;
 use cortex_m::iprint;
 use cortex_m_rt::entry;
 use eeprom24x::{Eeprom24x, SlaveAddr};
@@ -23,7 +23,8 @@ use ross_eeprom::{RossEeprom, RossDeviceInfo};
 use ross_protocol::ross_packet::RossPacket;
 use ross_protocol::ross_convert_packet::RossConvertPacket;
 use ross_protocol::ross_event::ross_bootloader_event::RossBootloaderHelloEvent;
-use ross_protocol::ross_event::ross_programmer_event::RossProgrammerHelloEvent;
+use ross_protocol::ross_event::ross_programmer_event::*;
+use ross_protocol::ross_event::ross_general_event::*;
 use ross_protocol::ross_interface::ross_can::{RossCan, RossCanError};
 
 const PROGRAM_ADDRESS: u32 = 0x0800_8000;
@@ -158,13 +159,39 @@ fn main() -> ! {
 
     allocate_heap();
 
+    let mut new_device_info = None;
+
     loop {
         let packet = wait_for_packet(&mut can);
 
         if let Ok(event) = RossProgrammerHelloEvent::try_from_packet(&packet) {    
-            debug!("Received 'programmer_hello_event' ({:?}).", event);
+            debug!("Received `programmer_hello_event` ({:?}).", event);
 
             transmit_bootloader_hello_event(&mut can, &device_info, &event);
+        } else if let Ok(event) = RossProgrammerStartUploadEvent::try_from_packet(&packet) {
+            debug!("Received `programmer_start_upload_event` ({:?}).", event);
+
+            new_device_info = Some(RossDeviceInfo {
+                device_address: device_info.device_address,
+                firmware_version: event.new_firmware_version,
+                peripheral_info_address: device_info.peripheral_info_address,
+                program_info_address: device_info.program_info_address,
+            });
+
+            transmit_ack_event(&mut can, &device_info, event.programmer_address);
+
+            // debug!("Writing new device info to EEPROM ({:?}).", new_device_info);
+            // eeprom.write_device_info(new_device_info, &mut delay);
+        } else if let Ok(event) = RossDataEvent::try_from_packet(&packet) {
+            debug!("Received `data_event` ({:?}).", event);
+
+            if let Some(ref _new_device_info) = new_device_info {
+                transmit_ack_event(&mut can, &device_info, event.device_address);
+                
+                // TODO: write data to flash
+            } else {
+                debug!("Unexpected `data_event` before `programmer_start_upload_event`.");
+            }
         } else {
             debug!("Received unexpected event ({:?}).", packet);
         }
@@ -207,6 +234,19 @@ fn transmit_bootloader_hello_event<I: Instance>(
         debug!("Failed to send `bootloader_hello_event` ({:?}).", err);
     } else {
         debug!("Sent `bootloader_hello_event` ({:?}).", event);
+    }
+}
+
+fn transmit_ack_event<I: Instance>(can: &mut RossCan<I>, device_info: &RossDeviceInfo, transmitter_address: u16) {
+    let event = RossAckEvent {
+        device_address: device_info.device_address,
+        transmitter_address,
+    };
+
+    if let Err(err) = can.try_send_packet(&event.to_packet()) {
+        debug!("Failed to send `ack_event` ({:?}).", err);
+    } else {
+        debug!("Sent `ack_event` ({:?}).", event);
     }
 }
 
