@@ -20,6 +20,7 @@ use stm32f1xx_hal::pac::{CorePeripherals, Peripherals, ITM};
 use stm32f1xx_hal::prelude::*;
 
 use ross_eeprom::{RossEeprom, RossDeviceInfo};
+use ross_protocol::ross_packet::RossPacket;
 use ross_protocol::ross_convert_packet::RossConvertPacket;
 use ross_protocol::ross_event::ross_bootloader_event::RossBootloaderHelloEvent;
 use ross_protocol::ross_event::ross_programmer_event::RossProgrammerHelloEvent;
@@ -85,7 +86,7 @@ fn main() -> ! {
     // If no firmware upgrade is requested, proceed with bootloading the program
     if upgrade_input.is_low().unwrap() {
         debug!("Booting firmware.");
-        boot();
+        // boot();
     }
 
     debug!("Entering upgrade mode.");
@@ -117,7 +118,15 @@ fn main() -> ! {
         RossEeprom::new(eeprom, 0)
     };
 
-    let device_info = eeprom.read_device_info().unwrap();
+
+    // let device_info = eeprom.read_device_info().unwrap();
+
+    let device_info = RossDeviceInfo {
+        device_address: 0x0000,
+        firmware_version: 0x00,
+        peripheral_info_address: 0x00,
+        program_info_address: 0x00,
+    };
 
     debug!("Loaded device information from EEPROM ({:?}).", device_info);
 
@@ -149,11 +158,16 @@ fn main() -> ! {
 
     allocate_heap();
 
-    let programmer_hello_event = wait_for_programmer_hello_event(&mut can);
-    transmit_bootloader_hello_event(&mut can, &device_info, &programmer_hello_event);
-
     loop {
-        nop();
+        let packet = wait_for_packet(&mut can);
+
+        if let Ok(event) = RossProgrammerHelloEvent::try_from_packet(&packet) {    
+            debug!("Received 'programmer_hello_event' ({:?}).", event);
+
+            transmit_bootloader_hello_event(&mut can, &device_info, &event);
+        } else {
+            debug!("Received unexpected event ({:?}).", packet);
+        }
     }
 }
 
@@ -163,39 +177,20 @@ fn boot() -> ! {
     }
 }
 
-fn calc_can_btr(clock_rate: u32) -> u32 {
-    let brp = clock_rate / CAN_BITRATE / (CAN_TSEG1 + CAN_TSEG2);
-
-    (brp - 1) | ((CAN_TSEG1 - 1) << 16) | ((CAN_TSEG2 - 1) << 20) | ((CAN_SJW - 1) << 24)
-}
-
-fn allocate_heap() {
-    let start = cortex_m_rt::heap_start() as usize;
-    unsafe { ALLOCATOR.init(start, HEAP_SIZE) }
-}
-
-fn wait_for_programmer_hello_event<I: Instance>(can: &mut RossCan<I>) -> RossProgrammerHelloEvent {
+fn wait_for_packet<I: Instance>(can: &mut RossCan<I>) -> RossPacket {
     loop {
         let packet = match can.try_get_packet() {
-            Ok(packet) => packet,
+            Ok(packet) => return packet,
             Err(err) => {
                 if let RossCanError::NoPacketReceived = err {
                     continue;
                 }
 
                 debug!("Failed to get packet ({:?}).", err);
-                continue;
             },
         };
-
-        if let Ok(event) = RossProgrammerHelloEvent::try_from_packet(&packet) {    
-            debug!("Received 'programmer_hello_event' ({:?}).", event);
-            return event;
-        } else {
-            debug!("Received unexpected event.");
-        }
     }
-}
+} 
 
 fn transmit_bootloader_hello_event<I: Instance>(
     can: &mut RossCan<I>,
@@ -213,6 +208,17 @@ fn transmit_bootloader_hello_event<I: Instance>(
     } else {
         debug!("Sent `bootloader_hello_event` ({:?}).", event);
     }
+}
+
+fn calc_can_btr(clock_rate: u32) -> u32 {
+    let brp = clock_rate / CAN_BITRATE / (CAN_TSEG1 + CAN_TSEG2);
+
+    (brp - 1) | ((CAN_TSEG1 - 1) << 16) | ((CAN_TSEG2 - 1) << 20) | ((CAN_SJW - 1) << 24)
+}
+
+fn allocate_heap() {
+    let start = cortex_m_rt::heap_start() as usize;
+    unsafe { ALLOCATOR.init(start, HEAP_SIZE) }
 }
 
 #[alloc_error_handler]
