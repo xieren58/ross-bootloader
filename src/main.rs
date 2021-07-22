@@ -87,7 +87,7 @@ fn main() -> ! {
     // If no firmware upgrade is requested, proceed with bootloading the program
     if upgrade_input.is_low().unwrap() {
         debug!("Booting firmware.");
-        // boot();
+        boot();
     }
 
     debug!("Entering upgrade mode.");
@@ -119,16 +119,7 @@ fn main() -> ! {
         RossEeprom::new(eeprom, 0)
     };
 
-
-    // let device_info = eeprom.read_device_info().unwrap();
-
-    let device_info = RossDeviceInfo {
-        device_address: 0x0000,
-        firmware_version: 0x00,
-        peripheral_info_address: 0x00,
-        program_info_address: 0x00,
-    };
-
+    let device_info = eeprom.read_device_info().unwrap();
     debug!("Loaded device information from EEPROM ({:?}).", device_info);
 
     let mut can = {
@@ -179,9 +170,6 @@ fn main() -> ! {
             });
 
             transmit_ack_event(&mut can, &device_info, event.programmer_address);
-
-            // debug!("Writing new device info to EEPROM ({:?}).", new_device_info);
-            // eeprom.write_device_info(new_device_info, &mut delay);
         } else if let Ok(event) = RossDataEvent::try_from_packet(&packet) {
             debug!("Received `data_event` ({:?}).", event);
 
@@ -189,6 +177,10 @@ fn main() -> ! {
                 transmit_ack_event(&mut can, &device_info, event.device_address);
                 
                 // TODO: write data to flash
+                //  if last_data_event {
+                //      debug!("Writing new device info to EEPROM ({:?}).", new_device_info);
+                //      eeprom.write_device_info(new_device_info, &mut delay);
+                //  }
             } else {
                 debug!("Unexpected `data_event` before `programmer_start_upload_event`.");
             }
