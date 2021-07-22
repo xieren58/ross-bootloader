@@ -27,7 +27,7 @@ use ross_protocol::ross_event::ross_programmer_event::*;
 use ross_protocol::ross_event::ross_general_event::*;
 use ross_protocol::ross_interface::ross_can::{RossCan, RossCanError};
 
-const PROGRAM_ADDRESS: u32 = 0x0800_8000;
+const PROGRAM_ADDRESS: u32 = 0x0801_0000;
 
 const EEPROM_BITRATE: u32 = 400_000;
 
