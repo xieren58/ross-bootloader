@@ -8,7 +8,7 @@ use alloc_cortex_m::CortexMHeap;
 use bxcan::filter::Mask32;
 use bxcan::Instance;
 use core::alloc::Layout;
-use cortex_m::asm::bootload;
+use cortex_m::asm::{bootload, nop};
 use cortex_m::iprint;
 use cortex_m_rt::entry;
 use eeprom24x::{Eeprom24x, SlaveAddr};
@@ -17,6 +17,8 @@ use nb::block;
 use stm32f1xx_hal::can::Can;
 use stm32f1xx_hal::i2c::{BlockingI2c, Mode};
 use stm32f1xx_hal::pac::{CorePeripherals, Peripherals, ITM};
+use stm32f1xx_hal::flash::{SectorSize, FlashSize};
+use stm32f1xx_hal::delay::Delay;
 use stm32f1xx_hal::prelude::*;
 
 use ross_eeprom::{RossEeprom, RossDeviceInfo};
@@ -28,6 +30,8 @@ use ross_protocol::ross_event::ross_general_event::*;
 use ross_protocol::ross_interface::ross_can::{RossCan, RossCanError};
 
 const PROGRAM_ADDRESS: u32 = 0x0801_0000;
+const FLASH_OFFSET: u32 = 0x0001_0000;
+const FLASH_SECTOR_SIZE: usize = 1024;
 
 const EEPROM_BITRATE: u32 = 400_000;
 
@@ -94,6 +98,7 @@ fn main() -> ! {
 
     let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
     let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+    let mut delay = Delay::new(cp.SYST, clocks);
 
     let mut eeprom = {
         let i2c1 = {
@@ -150,7 +155,16 @@ fn main() -> ! {
 
     allocate_heap();
 
+    let mut flash_writer = flash.writer(SectorSize::Sz1K, FlashSize::Sz128K);
+
+    flash_writer.change_verification(true);
+
+    let mut firmware_size: u32 = 0;
     let mut new_device_info = None;
+
+    let mut buf = [0x00; FLASH_SECTOR_SIZE];
+    let mut buf_offset = 0;
+    let mut flash_offset = FLASH_OFFSET;
 
     loop {
         let packet = wait_for_packet(&mut can);
@@ -162,6 +176,7 @@ fn main() -> ! {
         } else if let Ok(event) = RossProgrammerStartUploadEvent::try_from_packet(&packet) {
             debug!("Received `programmer_start_upload_event` ({:?}).", event);
 
+            firmware_size = event.firmware_size;
             new_device_info = Some(RossDeviceInfo {
                 device_address: device_info.device_address,
                 firmware_version: event.new_firmware_version,
@@ -171,22 +186,54 @@ fn main() -> ! {
 
             transmit_ack_event(&mut can, &device_info, event.programmer_address);
         } else if let Ok(event) = RossDataEvent::try_from_packet(&packet) {
-            debug!("Received `data_event` ({:?}).", event);
-
-            if let Some(ref _new_device_info) = new_device_info {
-                transmit_ack_event(&mut can, &device_info, event.device_address);
+            if let Some(ref device_info) = new_device_info {
+                transmit_ack_event(&mut can, &device_info, event.transmitter_address);
                 
-                // TODO: write data to flash
-                //  if last_data_event {
-                //      debug!("Writing new device info to EEPROM ({:?}).", new_device_info);
-                //      eeprom.write_device_info(new_device_info, &mut delay);
-                //  }
+                for i in 0..event.data_len {
+                    buf[buf_offset + i as usize] = event.data[i as usize];
+                }
+
+                buf_offset += event.data_len as usize;
+
+                if buf_offset >= buf.len() {
+                    if buf_offset != buf.len() {
+                        debug!("Data packet length is not a divisor of {}.", buf.len());
+                        break;
+                    }
+
+                    if let Err(err) = flash_writer.erase(flash_offset as u32, buf.len()) {
+                        debug!("Failed to erase FLASH at offset {:#010x} with error ({:?}).", flash_offset, err);
+                        break;
+                    }
+
+                    if let Err(err) = flash_writer.write(flash_offset as u32, &buf[..]) {
+                        debug!("Failed to write to FLASH at offset {:#010x} with error ({:?}).", flash_offset, err);
+                        break;
+                    }
+
+                    flash_offset += buf.len() as u32;
+                    buf_offset = 0;
+
+                    if flash_offset == FLASH_OFFSET + firmware_size {
+                        debug!("Writing new device info to EEPROM ({:?}).", new_device_info);
+                        eeprom.write_device_info(&device_info, &mut delay);
+                        firmware_size = 0;
+                        new_device_info = None;
+
+                        debug!("Booting firmware.");
+                        boot();
+                    }
+                }
             } else {
                 debug!("Unexpected `data_event` before `programmer_start_upload_event`.");
             }
         } else {
             debug!("Received unexpected event ({:?}).", packet);
         }
+    }
+
+    loop {
+        nop();
     }
 }
 
