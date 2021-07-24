@@ -1,6 +1,16 @@
 #!/bin/bash
 cargo build --release
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
 objcopy -I elf32-little -O binary ./target/thumbv7m-none-eabi/release/ross-bootloader ./target/thumbv7m-none-eabi/release/ross-bootloader.bin
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
 openocd -f ./openocd.cfg                                                                        \
     -c "init;"                                                                                  \
     -c "reset halt;"                                                                            \
@@ -9,3 +19,7 @@ openocd -f ./openocd.cfg                                                        
     -c "tpiu config external uart off 72000000 2000000"                                         \
     -c "itm port 0 on"                                                                          \
     -c "reset run;"
+
+if [ $? -ne 0 ]; then
+    exit 1
+fi
