@@ -216,9 +216,10 @@ fn main() -> ! {
 
                     if flash_offset == FLASH_OFFSET + firmware_size {
                         debug!("Writing new device info to EEPROM ({:?}).", new_device_info);
-                        eeprom.write_device_info(&device_info, &mut delay);
-                        firmware_size = 0;
-                        new_device_info = None;
+
+                        if let Err(err) = eeprom.write_device_info(&device_info, &mut delay) {
+                            debug!("Failed to write new device info to EEPROM with error ({:?}).", err);
+                        }
 
                         debug!("Booting firmware.");
                         boot();
