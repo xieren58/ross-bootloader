@@ -17,7 +17,7 @@ embedded-hal = "0.2.5"
 bxcan = "0.4.0"
 nb = "1.0.0"
 eeprom24x = "0.3.0"
-ross-eeprom = "1.0.1"
+ross-eeprom = "1.0.2"
 ross-protocol = "1.1.0"
 
 [dependencies.stm32f1xx-hal-bxcan]
