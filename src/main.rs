@@ -232,7 +232,7 @@ fn boot() -> ! {
 
 fn wait_for_packet<I: Instance>(can: &mut RossCan<I>, logger: &mut RossLogger) -> RossPacket {
     loop {
-        let packet = match can.try_get_packet() {
+        match can.try_get_packet() {
             Ok(packet) => return packet,
             Err(err) => {
                 if let RossCanError::NoPacketReceived = err {
