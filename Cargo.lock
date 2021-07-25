@@ -314,7 +314,7 @@ checksum = "e2a38df5b15c8d5c7e8654189744d8e396bddc18ad48041a500ce52d6948941f"
 
 [[package]]
 name = "ross-bootloader"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "alloc-cortex-m",
  "bxcan",
