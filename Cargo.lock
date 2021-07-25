@@ -325,6 +325,7 @@ dependencies = [
  "nb 1.0.0",
  "panic-itm",
  "ross-eeprom",
+ "ross-logger",
  "ross-protocol",
  "stm32f1xx-hal-bxcan",
 ]
@@ -339,6 +340,16 @@ dependencies = [
  "eeprom24x",
  "embedded-hal",
  "nb 1.0.0",
+ "stm32f1xx-hal-bxcan",
+]
+
+[[package]]
+name = "ross-logger"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a12f8513494e382fe0b980270e5f869c4cbfd2274417b69ff11539af41c0c38"
+dependencies = [
+ "cortex-m 0.7.3",
  "stm32f1xx-hal-bxcan",
 ]
 

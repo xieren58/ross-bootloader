@@ -19,6 +19,7 @@ nb = "1.0.0"
 eeprom24x = "0.3.0"
 ross-eeprom = "1.0.2"
 ross-protocol = "1.1.0"
+ross-logger = "1.0.3"
 
 [dependencies.stm32f1xx-hal-bxcan]
 version = "0.8.0"

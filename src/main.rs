@@ -2,21 +2,23 @@
 #![no_main]
 #![feature(alloc_error_handler)]
 
+extern crate alloc;
+
 use panic_itm as _;
 
+use alloc::format;
 use alloc_cortex_m::CortexMHeap;
 use bxcan::filter::Mask32;
 use bxcan::Instance;
 use core::alloc::Layout;
 use cortex_m::asm::{bootload, nop};
-use cortex_m::iprint;
 use cortex_m_rt::entry;
 use eeprom24x::{Eeprom24x, SlaveAddr};
 use embedded_hal::digital::v2::InputPin;
 use nb::block;
 use stm32f1xx_hal_bxcan::can::Can;
 use stm32f1xx_hal_bxcan::i2c::{BlockingI2c, Mode};
-use stm32f1xx_hal_bxcan::pac::{CorePeripherals, Peripherals, ITM};
+use stm32f1xx_hal_bxcan::pac::{CorePeripherals, Peripherals};
 use stm32f1xx_hal_bxcan::flash::{SectorSize, FlashSize};
 use stm32f1xx_hal_bxcan::delay::Delay;
 use stm32f1xx_hal_bxcan::prelude::*;
@@ -28,6 +30,7 @@ use ross_protocol::ross_event::ross_bootloader_event::RossBootloaderHelloEvent;
 use ross_protocol::ross_event::ross_programmer_event::*;
 use ross_protocol::ross_event::ross_general_event::*;
 use ross_protocol::ross_interface::ross_can::{RossCan, RossCanError};
+use ross_logger::{log_debug, log_warning, log_error, RossLogger, RossLogLevel};
 
 const PROGRAM_ADDRESS: u32 = 0x0801_0000;
 const FLASH_OFFSET: u32 = 0x0001_0000;
@@ -40,26 +43,10 @@ const CAN_TSEG1: u32 = 13;
 const CAN_TSEG2: u32 = 2;
 const CAN_SJW: u32 = 1;
 
-const DEBUG: bool = true;
 const HEAP_SIZE: usize = 4096;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
-
-static mut ITM_PERIPHERAL: Option<ITM> = None;
-
-macro_rules! debug {
-    ($fmt:expr) => {
-        if DEBUG {
-            iprint!(&mut unsafe { ITM_PERIPHERAL.as_mut().unwrap() }.stim[0], concat!($fmt, "\r\n"));
-        }
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        if DEBUG {
-            iprint!(&mut unsafe { ITM_PERIPHERAL.as_mut().unwrap() }.stim[0], concat!($fmt, "\r\n"), $($arg)*);
-        }
-    };
-}
 
 #[entry]
 fn main() -> ! {
@@ -78,11 +65,9 @@ fn main() -> ! {
         .pclk2(72.mhz())
         .freeze(&mut flash.acr);
 
-    unsafe {
-        ITM_PERIPHERAL = Some(cp.ITM);
-    }
-
-    debug!("Bootloader initialized.");
+    let mut logger = RossLogger::new(RossLogLevel::Debug, cp.ITM);
+    
+    log_debug!(logger, "Bootloader initialized.");
 
     let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
 
@@ -90,11 +75,11 @@ fn main() -> ! {
 
     // If no firmware upgrade is requested, proceed with bootloading the program
     if upgrade_input.is_low().unwrap() {
-        debug!("Booting firmware.");
+        log_debug!(logger, "Booting firmware.");
         boot();
     }
 
-    debug!("Entering upgrade mode.");
+    log_debug!(logger, "Entering upgrade mode.");
 
     let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
     let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
@@ -125,7 +110,8 @@ fn main() -> ! {
     };
 
     let device_info = eeprom.read_device_info().unwrap();
-    debug!("Loaded device information from EEPROM ({:?}).", device_info);
+
+    log_debug!(logger, "Loaded device information from EEPROM ({:?}).", device_info);
 
     let mut can = {
         let mut can1 = {
@@ -167,14 +153,14 @@ fn main() -> ! {
     let mut flash_offset = FLASH_OFFSET;
 
     loop {
-        let packet = wait_for_packet(&mut can);
+        let packet = wait_for_packet(&mut can, &mut logger);
 
         if let Ok(event) = RossProgrammerHelloEvent::try_from_packet(&packet) {    
-            debug!("Received `programmer_hello_event` ({:?}).", event);
+            log_debug!(logger, "Received `programmer_hello_event` ({:?}).", event);
 
-            transmit_bootloader_hello_event(&mut can, &device_info, &event);
+            transmit_bootloader_hello_event(&mut can, &device_info, &event, &mut logger);
         } else if let Ok(event) = RossProgrammerStartUploadEvent::try_from_packet(&packet) {
-            debug!("Received `programmer_start_upload_event` ({:?}).", event);
+            log_debug!(logger, "Received `programmer_start_upload_event` ({:?}).", event);
 
             firmware_size = event.firmware_size;
             new_device_info = Some(RossDeviceInfo {
@@ -184,10 +170,10 @@ fn main() -> ! {
                 program_info_address: device_info.program_info_address,
             });
 
-            transmit_ack_event(&mut can, &device_info, event.programmer_address);
+            transmit_ack_event(&mut can, &device_info, event.programmer_address, &mut logger);
         } else if let Ok(event) = RossDataEvent::try_from_packet(&packet) {
             if let Some(ref device_info) = new_device_info {
-                transmit_ack_event(&mut can, &device_info, event.transmitter_address);
+                transmit_ack_event(&mut can, &device_info, event.transmitter_address, &mut logger);
                 
                 for i in 0..event.data_len {
                     buf[buf_offset + i as usize] = event.data[i as usize];
@@ -197,17 +183,17 @@ fn main() -> ! {
 
                 if buf_offset >= buf.len() {
                     if buf_offset != buf.len() {
-                        debug!("Data packet length is not a divisor of {}.", buf.len());
+                        log_error!(logger, "Data packet length is not a divisor of {}.", buf.len());
                         break;
                     }
 
                     if let Err(err) = flash_writer.erase(flash_offset as u32, buf.len()) {
-                        debug!("Failed to erase FLASH at offset {:#010x} with error ({:?}).", flash_offset, err);
+                        log_error!(logger, "Failed to erase FLASH at offset {:#010x} with error ({:?}).", flash_offset, err);
                         break;
                     }
 
                     if let Err(err) = flash_writer.write(flash_offset as u32, &buf[..]) {
-                        debug!("Failed to write to FLASH at offset {:#010x} with error ({:?}).", flash_offset, err);
+                        log_error!(logger, "Failed to write to FLASH at offset {:#010x} with error ({:?}).", flash_offset, err);
                         break;
                     }
 
@@ -215,21 +201,21 @@ fn main() -> ! {
                     buf_offset = 0;
 
                     if flash_offset == FLASH_OFFSET + firmware_size {
-                        debug!("Writing new device info to EEPROM ({:?}).", new_device_info);
+                        log_debug!(logger, "Writing new device info to EEPROM ({:?}).", new_device_info);
 
                         if let Err(err) = eeprom.write_device_info(&device_info, &mut delay) {
-                            debug!("Failed to write new device info to EEPROM with error ({:?}).", err);
+                            log_error!(logger, "Failed to write new device info to EEPROM with error ({:?}).", err);
                         }
 
-                        debug!("Booting firmware.");
+                        log_debug!(logger, "Booting firmware.");
                         boot();
                     }
                 }
             } else {
-                debug!("Unexpected `data_event` before `programmer_start_upload_event`.");
+                log_warning!(logger, "Unexpected `data_event` before `programmer_start_upload_event`.");
             }
         } else {
-            debug!("Received unexpected event ({:?}).", packet);
+            log_warning!(logger, "Received unexpected event ({:?}).", packet);
         }
     }
 
@@ -244,7 +230,7 @@ fn boot() -> ! {
     }
 }
 
-fn wait_for_packet<I: Instance>(can: &mut RossCan<I>) -> RossPacket {
+fn wait_for_packet<I: Instance>(can: &mut RossCan<I>, logger: &mut RossLogger) -> RossPacket {
     loop {
         let packet = match can.try_get_packet() {
             Ok(packet) => return packet,
@@ -253,7 +239,7 @@ fn wait_for_packet<I: Instance>(can: &mut RossCan<I>) -> RossPacket {
                     continue;
                 }
 
-                debug!("Failed to get packet ({:?}).", err);
+                log_warning!(logger, "Failed to get packet ({:?}).", err);
             },
         };
     }
@@ -263,6 +249,7 @@ fn transmit_bootloader_hello_event<I: Instance>(
     can: &mut RossCan<I>,
     device_info: &RossDeviceInfo,
     programmer_hello_event: &RossProgrammerHelloEvent,
+    logger: &mut RossLogger,
 ) {
     let event = RossBootloaderHelloEvent {
         device_address: device_info.device_address,
@@ -271,22 +258,22 @@ fn transmit_bootloader_hello_event<I: Instance>(
     };
 
     if let Err(err) = can.try_send_packet(&event.to_packet()) {
-        debug!("Failed to send `bootloader_hello_event` ({:?}).", err);
+        log_error!(logger, "Failed to send `bootloader_hello_event` ({:?}).", err);
     } else {
-        debug!("Sent `bootloader_hello_event` ({:?}).", event);
+        log_debug!(logger, "Sent `bootloader_hello_event` ({:?}).", event);
     }
 }
 
-fn transmit_ack_event<I: Instance>(can: &mut RossCan<I>, device_info: &RossDeviceInfo, transmitter_address: u16) {
+fn transmit_ack_event<I: Instance>(can: &mut RossCan<I>, device_info: &RossDeviceInfo, transmitter_address: u16, logger: &mut RossLogger) {
     let event = RossAckEvent {
         device_address: device_info.device_address,
         transmitter_address,
     };
 
     if let Err(err) = can.try_send_packet(&event.to_packet()) {
-        debug!("Failed to send `ack_event` ({:?}).", err);
+        log_error!(logger, "Failed to send `ack_event` ({:?}).", err);
     } else {
-        debug!("Sent `ack_event` ({:?}).", event);
+        log_debug!(logger, "Sent `ack_event` ({:?}).", event);
     }
 }
 
