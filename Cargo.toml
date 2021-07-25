@@ -20,7 +20,6 @@ eeprom24x = "0.3.0"
 ross-eeprom = "1.0.1"
 ross-protocol = "1.1.0"
 
-[dependencies.stm32f1xx-hal]
-version = "0.7.0"
-git = "https://github.com/stm32-rs/stm32f1xx-hal"
+[dependencies.stm32f1xx-hal-bxcan]
+version = "0.8.0"
 features = ["rt", "stm32f103", "medium"]

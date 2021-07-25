@@ -326,7 +326,7 @@ dependencies = [
  "panic-itm",
  "ross-eeprom",
  "ross-protocol",
- "stm32f1xx-hal 0.7.0 (git+https://github.com/stm32-rs/stm32f1xx-hal)",
+ "stm32f1xx-hal-bxcan",
 ]
 
 [[package]]
@@ -339,7 +339,7 @@ dependencies = [
  "eeprom24x",
  "embedded-hal",
  "nb 1.0.0",
- "stm32f1xx-hal 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stm32f1xx-hal",
 ]
 
 [[package]]
@@ -446,9 +446,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "stm32f1xx-hal"
-version = "0.7.0"
-source = "git+https://github.com/stm32-rs/stm32f1xx-hal#846e9c6205c626234d1c29172bb008a0d9494b35"
+name = "stm32f1xx-hal-bxcan"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "954a7dc0bd4bd2df36442771d9e552eebee64264fe574942de1869c3189ac6f5"
 dependencies = [
  "bxcan",
  "cast",

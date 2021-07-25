@@ -14,12 +14,12 @@ use cortex_m_rt::entry;
 use eeprom24x::{Eeprom24x, SlaveAddr};
 use embedded_hal::digital::v2::InputPin;
 use nb::block;
-use stm32f1xx_hal::can::Can;
-use stm32f1xx_hal::i2c::{BlockingI2c, Mode};
-use stm32f1xx_hal::pac::{CorePeripherals, Peripherals, ITM};
-use stm32f1xx_hal::flash::{SectorSize, FlashSize};
-use stm32f1xx_hal::delay::Delay;
-use stm32f1xx_hal::prelude::*;
+use stm32f1xx_hal_bxcan::can::Can;
+use stm32f1xx_hal_bxcan::i2c::{BlockingI2c, Mode};
+use stm32f1xx_hal_bxcan::pac::{CorePeripherals, Peripherals, ITM};
+use stm32f1xx_hal_bxcan::flash::{SectorSize, FlashSize};
+use stm32f1xx_hal_bxcan::delay::Delay;
+use stm32f1xx_hal_bxcan::prelude::*;
 
 use ross_eeprom::{RossEeprom, RossDeviceInfo};
 use ross_protocol::ross_packet::RossPacket;
