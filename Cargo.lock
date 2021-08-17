@@ -355,9 +355,9 @@ dependencies = [
 
 [[package]]
 name = "ross-protocol"
-version = "1.3.5"
+version = "1.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1d81eb6d27acb59a28fd2963a371a54f97595b42457f528655a39cf71fb42da"
+checksum = "acfa20fa0c50a0c96f3e5e2bfdfd993176bfd389bca9c33280e4e285cea8c25d"
 dependencies = [
  "bxcan",
  "cobs",
