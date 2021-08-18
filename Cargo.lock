@@ -345,9 +345,9 @@ dependencies = [
 
 [[package]]
 name = "ross-logger"
-version = "1.0.3"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a12f8513494e382fe0b980270e5f869c4cbfd2274417b69ff11539af41c0c38"
+checksum = "34a05df37312e20f1be52d69c5f25771ad89889486543a1fbfca41b19a77df00"
 dependencies = [
  "cortex-m 0.7.3",
  "stm32f1xx-hal-bxcan",
